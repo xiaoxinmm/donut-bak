@@ -112,6 +112,7 @@ typedef struct _IMAGE_FILE_HEADER {
 #define IMAGE_FILE_MACHINE_MIPSFPU           0x0366  // MIPS
 #define IMAGE_FILE_MACHINE_MIPSFPU16         0x0466  // MIPS
 #define IMAGE_FILE_MACHINE_AXP64             IMAGE_FILE_MACHINE_ALPHA64
+#define IMAGE_FILE_MACHINE_ARM64             0xAA64  // ARM64/AArch64
 #define IMAGE_FILE_MACHINE_TRICORE           0x0520  // Infineon
 #define IMAGE_FILE_MACHINE_CEF               0x0CEF
 #define IMAGE_FILE_MACHINE_EBC               0x0EBC  // EFI Byte Code

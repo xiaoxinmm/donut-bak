@@ -194,6 +194,11 @@ static int is32 (void *map) {
     return FileHdr(map)->Machine == IMAGE_FILE_MACHINE_I386;
 }
 
+// determines if binary is ARM64
+static int isARM64 (void *map) {
+    return FileHdr(map)->Machine == IMAGE_FILE_MACHINE_ARM64;
+}
+
 // return pointer to Optional header
 static void* OptHdr (void *map) {
     return (void*)&NtHdr(map)->OptionalHeader;
@@ -551,7 +556,11 @@ static int read_file_info(PDONUT_CONFIG c) {
       rva = dir[IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR].VirtualAddress;
       
       // set the CPU architecture for file
-      fi.arch = cpu ? DONUT_ARCH_X86 : DONUT_ARCH_X64;
+      if(isARM64(fi.data)) {
+        fi.arch = DONUT_ARCH_ARM64;
+      } else {
+        fi.arch = cpu ? DONUT_ARCH_X86 : DONUT_ARCH_X64;
+      }
       
       // if COM directory present
       if(rva != 0) {
@@ -1432,9 +1441,16 @@ static int validate_loader_cfg(PDONUT_CONFIG c) {
     if(c->arch != DONUT_ARCH_X86 &&
        c->arch != DONUT_ARCH_X64 &&
        c->arch != DONUT_ARCH_X84 &&
+       c->arch != DONUT_ARCH_ARM64 &&
        c->arch != DONUT_ARCH_ANY)
     {
       DPRINT("Target architecture %"PRId32 " is invalid.", c->arch);
+      return DONUT_ERROR_INVALID_ARCH;
+    }
+    
+    // Check if ARM64 loader is requested (not yet implemented)
+    if(c->arch == DONUT_ARCH_ARM64) {
+      DPRINT("ARM64 architecture detected but loader not yet implemented.");
       return DONUT_ERROR_INVALID_ARCH;
     }
     
@@ -1527,10 +1543,16 @@ static int validate_file_cfg(PDONUT_CONFIG c) {
     {
       // Requested shellcode is x86, but file is x64?
       // Requested shellcode is x64, but file is x86?
+      // Requested shellcode is ARM64, but file is x86/x64?
+      // Requested shellcode is x86/x64, but file is ARM64?
       if((c->arch == DONUT_ARCH_X86  && 
          fi.arch  == DONUT_ARCH_X64) ||
          (c->arch == DONUT_ARCH_X64  &&
-         fi.arch  == DONUT_ARCH_X86))
+         fi.arch  == DONUT_ARCH_X86) ||
+         (c->arch == DONUT_ARCH_ARM64 && 
+         (fi.arch == DONUT_ARCH_X86 || fi.arch == DONUT_ARCH_X64)) ||
+         ((c->arch == DONUT_ARCH_X86 || c->arch == DONUT_ARCH_X64) &&
+         fi.arch == DONUT_ARCH_ARM64))
       {
         DPRINT("Target architecture %"PRId32 " is not compatible with DLL/EXE %"PRId32, c->arch, fi.arch);
         return DONUT_ERROR_ARCH_MISMATCH;
@@ -1963,6 +1985,9 @@ static int validate_arch(opt_arg *arg, void *args) {
       } else
       if(!strcasecmp("x84", str)) {
         arg->u32 = DONUT_ARCH_X84;
+      } else
+      if(!strcasecmp("arm64", str) || !strcasecmp("aarch64", str)) {
+        arg->u32 = DONUT_ARCH_ARM64;
       }
     }
     
@@ -1971,6 +1996,7 @@ static int validate_arch(opt_arg *arg, void *args) {
       case DONUT_ARCH_X86:
       case DONUT_ARCH_X64:
       case DONUT_ARCH_X84:
+      case DONUT_ARCH_ARM64:
         break;
       default: {
         printf("WARNING: Invalid architecture specified: %"PRId32" -- setting to x86+amd64\n", arg->u32);
@@ -2148,7 +2174,7 @@ static void usage (void) {
     printf("       -e,--entropy: <level>                   Entropy. 1=None, 2=Use random names, 3=Random names + symmetric encryption (default)\n\n");
     
     printf("                   -PIC/SHELLCODE OPTIONS-\n\n");    
-    printf("       -a,--arch: <arch>,--cpu: <arch>         Target architecture : 1=x86, 2=amd64, 3=x86+amd64(default).\n");
+    printf("       -a,--arch: <arch>,--cpu: <arch>         Target architecture : 1=x86, 2=amd64, 3=x86+amd64(default), 4=arm64.\n");
     printf("       -o,--output: <path>                     Output file to save loader. Default is \"loader.bin\"\n");
     printf("       -f,--format: <format>                   Output format. 1=Binary (default), 2=Base64, 3=C, 4=Ruby, 5=Python, 6=Powershell, 7=C#, 8=Hex\n");
     printf("       -y,--fork: <offset>                     Create a new thread for the loader and continue execution at <offset> relative to the host process's executable.\n");
@@ -2186,7 +2212,7 @@ int main(int argc, char *argv[]) {
     DONUT_CONFIG c;
     int          err;
     char         *mod_type;
-    char         *arch_str[3] = { "x86", "amd64", "x86+amd64" };
+    char         *arch_str[4] = { "x86", "amd64", "x86+amd64", "arm64" };
     char         *inst_type[2]= { "Embedded", "HTTP" };
     
     printf("\n");

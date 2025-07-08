@@ -233,6 +233,14 @@ $RECYCLE.BIN/
 *.msm
 *.msp
 
+# Linux build artifacts
+*.o
+donut
+lib/libdonut.a
+lib/libdonut.so
+instance
+loader.bin
+
 #OpenCover output
 coverage.xml
 
